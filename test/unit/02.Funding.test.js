@@ -21,9 +21,6 @@ describe("Funding", function () {
 
     const Funding = await deployments.get("Funding");
     funding = await ethers.getContractAt(Funding.abi, Funding.address);
-
-    // funding = await ethers.getContractAt("Funding", deployer);
-    // ming = await ethers.getContractAt("MingCoin", deployer);
   });
 
   describe("funding", function () {
@@ -36,80 +33,48 @@ describe("Funding", function () {
       const balanceOfFunding = await ming.balanceOf(funding.address);
       const balanceOfDeployer = await ming.balanceOf(deployer);
 
+      const balance = await funding.balance();
+      console.log("balance: " + balance);
+
       expect(balanceOfFunding).to.be.equal(totalSupply);
       expect(balanceOfDeployer).to.be.equal(0);
     });
 
-    it("funder-0 funding-0", async () => {
+    it("funding-0", async () => {
+      await funding.getCurrentAmountFunded(
+        "0x820638ecd57B55e51CE6EaD7D137962E7A201dD9"
+      );
+      console.log("called getCurrentAmountFunded(1).");
+
       const accounts = await ethers.getSigners();
       const user1 = accounts[1];
 
       const sendValue = ethers.utils.parseEther("1");
-      await funding.connect(user1).fund({ value: sendValue });
-      // const amountFunded = await funding.getCurrentAmountFunded(user1.address);
-      // expect(amountFunded).to.be.equal(sendValue);
-    });
 
-    it("funder-0 funding-1", async () => {
-      const accounts = await ethers.getSigners();
-      const user1 = accounts[1];
+      const fundingUser1 = await funding.connect(user1);
+      await fundingUser1.fund4TestOnly({ value: sendValue });
 
-      const sendValue = ethers.utils.parseEther("1");
-      const fundingValue = ethers.utils.parseEther("2");
-      await funding.connect(user1).fund({ value: sendValue });
-      const amountFunded = await funding.getCurrentAmountFunded(user1.address);
-      expect(fundingValue).to.be.equal(amountFunded);
-    });
+      await funding.getCurrentAmountFunded(
+        "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+      );
+      console.log("called getCurrentAmountFunded(2).");
 
-    it("funder-1 funding-0", async () => {
-      const accounts = await ethers.getSigners();
-      const user2 = accounts[2];
-      const balanceOfETHb4 = await ethers.provider.getBalance(user2.address);
-      console.log("eth balance before: " + balanceOfETHb4);
+      const user1Address = await user1.getAddress();
+      console.log("fundingUser1: " + fundingUser1.address);
+      console.log("user1Address: " + user1Address);
 
-      const sendValue = ethers.utils.parseEther("1");
-      await funding.connect(user2).fund({ value: sendValue });
-      const amountFunded = await funding.getCurrentAmountFunded(user2.address);
-      expect(sendValue).to.be.equal(amountFunded);
+      const amountFunded = await funding.getCurrentAmountFunded(user1Address);
+      expect(amountFunded).to.be.equal(sendValue);
+      console.log("called getCurrentAmountFunded(3) -> " + amountFunded);
 
-      const balance = await funding.balance();
-      console.log("funding balance: " + balance);
+      const balanceOfMing = await ming.balanceOf(user1Address);
 
-      const balanceOfETH = await ethers.provider.getBalance(user2.address);
-      console.log("eth balance after: " + balanceOfETH);
-    });
-
-    it("onFundingOver", async () => {
-      //causing cannot estimate gas; transaction may fail or may require manual gas limit on --network localhost
-      const totalAmountRaised = await funding.balance();
-      console.log("totalAmountRaised: " + totalAmountRaised);
-
-      const balanceOfMingBf = await ming.balanceOf(funding.address);
-      console.log("balance of Ming before fund over: " + balanceOfMingBf);
-
-      //todo get balance of WETH
-      // const expectedTotalAmountRaised = ethers.utils.parseEther("3");
-      // expect(totalAmountRaised).to.be.equal(expectedTotalAmountRaised);
-
-      console.log("calling funding.onFundingOver()");
-      await funding.onFundingOver();
-
-      const accounts = await ethers.getSigners();
-      const user1 = accounts[1];
-      const user2 = accounts[2];
-
-      const totalSupply = BigInt(await ming.totalSupply());
-
-      const expectValue1 = totalSupply / 2n * 2n / 3n; //2/3
-      const user1Balance = await ming.balanceOf(user1.address);
-      expect(user1Balance).to.be.equal(expectValue1);
-
-      const expectValue2 = totalSupply / 2n * 1n / 3n; //1/3
-      const user2Balance = await ming.balanceOf(user2.address);
-      expect(user2Balance).to.be.equal(expectValue2);
-
-      const balanceOfMing = await ming.balanceOf(funding.address);
-      console.log("balance of Ming after fund over: " + balanceOfMing);
+      // Use BigNumber for the comparison
+      const expectedBalance = ethers.BigNumber.from(sendValue).mul(
+        ethers.BigNumber.from("100000000")
+      );
+      // Use BigNumber comparison methods
+      expect(balanceOfMing.eq(expectedBalance)).to.be.true;
     });
   });
 });

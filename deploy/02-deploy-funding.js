@@ -6,9 +6,10 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const { deploy, log } = deployments
     const { deployer } = await getNamedAccounts()
 
-    const ming = await deployments.get("MingCoin")
-    const addressOfMing = ming.address
-    // const addressOfMing = '0x62a033f8C1eE5131f59D3907994cE12E020cFf5D' //address from goerli
+    //should always used hard coded address
+    // const ming = await deployments.get("MingCoin")
+    // const addressOfMing = ming.address
+    const addressOfMing = '0x09d74307cB5a790e2a98Aedb3D297E21b7acedBE' //address from goerli
     const endTime = 1705248000000; //15/1/2024
 
     log("----------------------------------------------------")
@@ -30,7 +31,6 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     // ) {
     //     await verify(fundMe.address, [ethUsdPriceFeedAddress])
     // }
-    
 }
 
 module.exports.tags = ["all", "funding"]

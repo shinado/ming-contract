@@ -21,14 +21,26 @@ describe("Ming", function () {
   });
 
   describe("constructor", function () {
+    it("total supply", async () => {
+      const balanceOfDeployer = await ming.balanceOf(deployer);
+      const totalSupply = await ming.totalSupply();
+      expect(balanceOfDeployer).to.be.equal(totalSupply);
+    });
+
     it("burn", async () => {
       console.log("address of ming: " + ming.address);
-      const address = await ming.burn("北京大张伟", 12);
-      console.log("address:" + address);
-      expect(address).to.be.equal("kkkkk");
-      // const balanceOfDeployer = await ming.balanceOf(deployer);
-      // const totalSupply = await ming.totalSupply();
-      // expect(balanceOfDeployer).to.be.equal(totalSupply);
+      await ming.burn("北京大张伟", 1223);
+      await ming.burn("香港梁朝伟", 12323);
+      await ming.burn("北京大张伟", 1333);
+      await ming.burn("河北香菜画", 333);
+      await ming.burn("George Washingtong", 122333);
+
+      const sortedBurnings = await ming.getSortedBurnings();
+      sortedBurnings.forEach((burning, index) => {
+        console.log(
+          `Burning ${index}: Name - ${burning.name}, Address - ${burning.addressOfDead}, Amount - ${burning.amount}`
+        );
+      });
     });
 
     // it("transfer", async() => {

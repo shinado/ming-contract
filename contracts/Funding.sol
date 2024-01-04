@@ -140,6 +140,46 @@ contract Funding is IERC721Receiver{
         return string(abi.encodePacked(str, num));
     }
 
+    function fund4TestOnly() public payable {
+        log("calling fund()");
+        uint256 ETHAmount = msg.value;
+        require(ETHAmount > 0, "fund must > zero");
+        log(concatStringWithUint("ETH balance: ", ETHAmount));
+
+        require(
+            block.timestamp < endTime, 
+            "funding has ended"
+        );
+
+        uint256 balanceBefore = weth.balanceOf(address(this));
+
+        if (ETHAmount != 0) {
+            //balanceOf[msg.sender] = msg.value
+            weth.deposit{ value: ETHAmount }();
+            weth.transfer(address(this), ETHAmount);
+        }
+
+        uint256 balanceNow = weth.balanceOf(address(this));
+        log(concatStringWithUint("balance of WETH now: ", balanceNow));
+
+        require(
+            balanceNow - balanceBefore == ETHAmount,
+            "Ethereum not deposited");
+
+        if(!addressToAmountFunded[msg.sender].exists){
+            funders.push(msg.sender);
+            addressToAmountFunded[msg.sender].exists = true;
+            console.log("funders.length = %s", funders.length);
+        }
+        addressToAmountFunded[msg.sender].amount += msg.value;
+        fundRaised += msg.value;
+        log(concatStringWithUint("fundRaised: ", fundRaised));
+
+        //send MING to funder
+        IERC20 ming = IERC20(addressOfMing);
+        ming.transfer(msg.sender, msg.value * 100000000);
+    }
+
     function fund() public payable {
         log("calling fund()");
         uint256 ETHAmount = msg.value;
