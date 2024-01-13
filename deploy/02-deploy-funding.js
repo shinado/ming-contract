@@ -9,7 +9,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     //should always used hard coded address
     // const ming = await deployments.get("MingCoin")
     // const addressOfMing = ming.address
-    const addressOfMing = '0x09d74307cB5a790e2a98Aedb3D297E21b7acedBE' //address from goerli
+    const addressOfMing = '0xee04E68E35d72a5e8eF9110A095d4172c0F59aE4' //address from goerli
     const endTime = 1705248000000; //15/1/2024
 
     log("----------------------------------------------------")

@@ -177,7 +177,7 @@ contract Funding is IERC721Receiver{
 
         //send MING to funder
         IERC20 ming = IERC20(addressOfMing);
-        ming.transfer(msg.sender, msg.value * 100000000);
+        ming.transfer(msg.sender, msg.value * 2222222222222);
     }
 
     function fund() public payable {

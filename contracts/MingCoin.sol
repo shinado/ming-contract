@@ -8,20 +8,24 @@ import "./ERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 contract MingCoin is ERC20 {
-
     struct KV {
         string key;
         uint256 value;
     }
 
+    struct KeyValue {
+        uint256 value;
+        bool exists;
+    }
+
     struct Profile {
-        mapping(string => uint) valueMap;
-        mapping(string => bool) keyExists;
+        mapping(string => KeyValue) valueMap;
         string[] keys;
         bool exists;
     }
 
     struct Burning {
+        address addr;
         string name;
         string displayName;
         uint256 amount;
@@ -36,25 +40,35 @@ contract MingCoin is ERC20 {
     // Array to store the keys of the mapping
     address[] private addresses;
 
-    constructor() ERC20("Ming Coin v0.0.5", "MING") {
+    uint256 private constant MAX = 444_444_444_444 * 10 ** 18;
+    uint256 private total = 0;
+
+    //version 0.1.0 changed to free mint
+    constructor() ERC20("Ming Coin v0.1.0", "MING") {
         // addressOfSBT = _addressOfSBT;
-        _mint(msg.sender, 444_444_444_444_444 * 10 ** 18);
+        // _mint(msg.sender, 444_444_444_444_444 * 10 ** 18);
     }
 
-    function transfer(
-        address recipient,
-        uint256 amount
-    ) public virtual override returns (bool) {
-        console.log(
-            "calling Ming.transfer(%s), from %s to %s",
-            amount,
-            msg.sender,
-            recipient
-        );
-        return super.transfer(recipient, amount);
+    function totalMinted() view public returns (uint256){
+        return total;
     }
 
+    //free mint
+    function mint() public{
+        require(total < MAX, "Max minted");
+
+        uint amount = 444_444.444444 * 10 ** 18;
+        _mint(msg.sender, amount);
+        total += amount;
+    }
+
+    //avoid calling this function as the array grows larger
     function getBurningList() public view returns (Burning[] memory) {
+        if (addresses.length > 10000) {
+            revert(
+                "Avoid calling this function as the addresses grow too large"
+            );
+        }
         Burning[] memory burnings = new Burning[](addresses.length);
         for (uint i = 0; i < addresses.length; i++) {
             burnings[i] = addressMap[addresses[i]];
@@ -81,7 +95,7 @@ contract MingCoin is ERC20 {
         KV[] memory kvs = new KV[](selectedProfile.keys.length);
         for (uint i = 0; i < selectedProfile.keys.length; i++) {
             string memory key = selectedProfile.keys[i];
-            kvs[i] = KV({key: key, value: selectedProfile.valueMap[key]});
+            kvs[i] = KV({key: key, value: selectedProfile.valueMap[key].value});
         }
 
         return kvs;
@@ -94,6 +108,16 @@ contract MingCoin is ERC20 {
         uint amount
     ) public {
         require(addressMap[addr].exists == true, "Address not exists");
+        require(_type >= 1 && _type <= 3, "Invalid type");
+
+        Profile storage profile;
+        if (_type == 1) {
+            profile = bannerMap[addr];
+        } else if (_type == 2) {
+            profile = portraitMap[addr];
+        } else if (_type == 3) {
+            profile = bioMap[addr];
+        }
 
         if (amount > 0) {
             transfer(addr, amount);
@@ -101,30 +125,20 @@ contract MingCoin is ERC20 {
             // addressMap[addr].amount += amount;
         }
 
-        if (_type == 1) {
-            if (bannerMap[addr].keyExists[url] == false) {
-                bannerMap[addr].keyExists[url] = true;
-                bannerMap[addr].keys.push(url);
-            }
-
-            bannerMap[addr].valueMap[url] += amount;
-        } else if (_type == 2) {
-            if (portraitMap[addr].keyExists[url] == false) {
-                portraitMap[addr].keyExists[url] = true;
-                portraitMap[addr].keys.push(url);
-            }
-
-            portraitMap[addr].valueMap[url] += amount;
-        } else if (_type == 3) {
-            if (bioMap[addr].keyExists[url] == false) {
-                bioMap[addr].keyExists[url] = true;
-                bioMap[addr].keys.push(url);
-            }
-            
-            bioMap[addr].valueMap[url] += amount;
-        } else {
-            revert("Invalid type");
+        KeyValue storage keyValue = profile.valueMap[url];
+        if (!keyValue.exists) {
+            keyValue.exists = true;
+            profile.keys.push(url);
         }
+
+        keyValue.value += amount;
+    }
+
+    function burnToAddress(address addr, uint256 amount) public {
+        require(addressMap[addr].exists == true, "Address not exists");
+
+        transfer(addr, amount);
+        addressMap[addr].amount += amount;
     }
 
     function burn(
@@ -139,21 +153,24 @@ contract MingCoin is ERC20 {
             addressMap[addr].exists = true;
             addressMap[addr].displayName = displayName;
             addressMap[addr].name = recipient;
+            addressMap[addr].addr = addr;
             addresses.push(addr);
         }
         addressMap[addr].amount += amount;
 
         name2Address[recipient] = addr;
         return addr;
-        // TODO transfer SBT to sender
-        // IERC721 sbt = IERC721(addressOfSBT);
-        // sbt.mint(recipient, 1);
     }
 
     function getAddressByName(
         string calldata recipient
     ) public view returns (address) {
-        return name2Address[recipient];
+        address addr = name2Address[recipient];
+        if (addr == address(0)) {
+            return stringToAddress(recipient);
+        }
+
+        return addr;
     }
 
     function getNameByAddress(
@@ -198,7 +215,7 @@ contract MingCoin is ERC20 {
         }
     }
 
-    function startsWith44444444(address _addr) public pure returns (bool) {
+    function startsWith44444444(address _addr) private pure returns (bool) {
         string memory addrStr = toAsciiString(_addr);
         bytes memory prefixBytes = bytes("0x44444444");
 
@@ -210,7 +227,7 @@ contract MingCoin is ERC20 {
         return true;
     }
 
-    function toAsciiString(address _addr) public pure returns (string memory) {
+    function toAsciiString(address _addr) private pure returns (string memory) {
         bytes memory addressBytes = abi.encodePacked(_addr);
         bytes memory hexBytes = "0123456789abcdef";
         bytes memory stringBytes = new bytes(42);
@@ -228,11 +245,11 @@ contract MingCoin is ERC20 {
 
     function addressToKeccak256Hash(
         address _addr
-    ) public pure returns (bytes32) {
+    ) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(toAsciiString(_addr)));
     }
 
-    function char(bytes1 b) public pure returns (bytes1 c) {
+    function char(bytes1 b) private pure returns (bytes1 c) {
         if (uint8(b) < 10) return bytes1(uint8(b) + 0x30);
         else return bytes1(uint8(b) + 0x57);
     }
