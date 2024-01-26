@@ -2,10 +2,17 @@
 pragma solidity ^0.7.6;
 pragma abicoder v2;
 
-// import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "./Address.sol";
 import "hardhat/console.sol";
 import "./ERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+interface IWETH is IERC20 {
+    function deposit() external payable;
+
+    function withdraw(uint) external;
+}
 
 contract MingCoin is ERC20 {
     struct KV {
@@ -24,10 +31,15 @@ contract MingCoin is ERC20 {
         bool exists;
     }
 
+    struct BurningInfo {
+        address from;
+        uint256 amount;
+        string message;
+    }
+
     struct Burning {
         address addr;
         string name;
-        string displayName;
         uint256 amount;
         bool exists;
     }
@@ -36,30 +48,87 @@ contract MingCoin is ERC20 {
     mapping(address => Profile) private portraitMap;
     mapping(address => Profile) private bioMap;
     mapping(address => Burning) private addressMap;
+    mapping(address => BurningInfo[]) private burningMap;
     mapping(string => address) private name2Address;
     // Array to store the keys of the mapping
     address[] private addresses;
 
     uint256 private constant MAX = 444_444_444_444 * 10 ** 18;
+    uint256 private constant MINT_AMOUNT = 444_444_000_000 * 10 ** 12; //444_444.444_444
+    uint256 private constant EXCHANGE_RATE = 106_666_666; //41.66 ETH for whole supply
+
     uint256 private total = 0;
+    IWETH weth;
 
     //version 0.1.0 changed to free mint
-    constructor() ERC20("Ming Coin v0.1.0", "MING") {
+    //version 0.1.2 added batch mint
+    //version 0.1.3 added burning message
+    constructor() ERC20("Ming Coin v0.1.3", "MING") {
         // addressOfSBT = _addressOfSBT;
         // _mint(msg.sender, 444_444_444_444_444 * 10 ** 18);
+        weth = IWETH(Address.WETH);
     }
 
-    function totalMinted() view public returns (uint256){
+    function maxSupply() public pure returns (uint256) {
+        return MAX;
+    }
+
+    function totalMinted() public view returns (uint256) {
         return total;
     }
 
-    //free mint
-    function mint() public{
-        require(total < MAX, "Max minted");
+    function isMintOver() public view returns (bool) {
+        return total >= MAX;
+    }
 
-        uint amount = 444_444.444444 * 10 ** 18;
-        _mint(msg.sender, amount);
-        total += amount;
+    //free mint
+    //est. 10 million mints
+    function mint() public returns (uint256) {
+        require(total < MAX, "Mint finished");
+
+        if (total + MINT_AMOUNT > MAX) {
+            uint256 actualAmount = MAX - total;
+            _mint(msg.sender, actualAmount);
+            total += actualAmount;
+
+            return actualAmount;
+        } else {
+            _mint(msg.sender, MINT_AMOUNT);
+            total += MINT_AMOUNT;
+            return MINT_AMOUNT;
+        }
+    }
+
+    function balanceToMint() public view returns (uint256) {
+        return MAX - total;
+    }
+
+    function batchMint() public payable {
+        uint256 ETHAmount = msg.value;
+        require(ETHAmount > 0, "fund must > zero");
+
+        uint256 amountOfMing = ETHAmount * EXCHANGE_RATE;
+        require(balanceToMint() >= amountOfMing * 2, "Not enough MING to mint");
+
+        uint256 balanceBefore = weth.balanceOf(address(this));
+
+        if (ETHAmount != 0) {
+            //balanceOf[msg.sender] = msg.value
+            weth.deposit{value: ETHAmount}();
+            weth.transfer(address(this), ETHAmount);
+        }
+        uint256 balanceNow = weth.balanceOf(address(this));
+
+        require(
+            balanceNow - balanceBefore == ETHAmount,
+            "Ethereum not deposited"
+        );
+
+        // IERC20 ming = IERC20(address(this));
+        // ming.transfer(msg.sender, amountOfMing);
+        _mint(msg.sender, amountOfMing);
+
+        total += amountOfMing * 2;
     }
 
     //avoid calling this function as the array grows larger
@@ -69,6 +138,7 @@ contract MingCoin is ERC20 {
                 "Avoid calling this function as the addresses grow too large"
             );
         }
+
         Burning[] memory burnings = new Burning[](addresses.length);
         for (uint i = 0; i < addresses.length; i++) {
             burnings[i] = addressMap[addresses[i]];
@@ -134,31 +204,50 @@ contract MingCoin is ERC20 {
         keyValue.value += amount;
     }
 
-    function burnToAddress(address addr, uint256 amount) public {
-        require(addressMap[addr].exists == true, "Address not exists");
-
+    function _burnToAddress(
+        address addr,
+        uint256 amount,
+        string memory message
+    ) private{
         transfer(addr, amount);
         addressMap[addr].amount += amount;
+
+        burningMap[addr].push(
+            BurningInfo({from: msg.sender, amount: amount, message: message})
+        );
+    }
+
+    function burnToAddress(
+        address addr,
+        uint256 amount,
+        string memory message
+    ) public {
+        require(addressMap[addr].exists == true, "Address not exists");
+
+        _burnToAddress(addr, amount, message);
+    }
+
+    function getBurningHistory(
+        address addr
+    ) public view returns (BurningInfo[] memory) {
+        return burningMap[addr];
     }
 
     function burn(
-        string memory displayName,
         string memory recipient,
-        uint256 amount
+        uint256 amount,
+        string memory message
     ) public returns (address) {
         address addr = stringToAddress(recipient);
-        transfer(addr, amount);
 
         if (addressMap[addr].exists == false) {
             addressMap[addr].exists = true;
-            addressMap[addr].displayName = displayName;
             addressMap[addr].name = recipient;
             addressMap[addr].addr = addr;
             addresses.push(addr);
         }
-        addressMap[addr].amount += amount;
+        _burnToAddress(addr, amount, message);
 
-        name2Address[recipient] = addr;
         return addr;
     }
 

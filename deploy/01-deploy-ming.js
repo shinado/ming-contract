@@ -19,7 +19,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         args: [],
         log: true,
         // we need to wait if on a live network so we can verify properly
-        waitConfirmations: network.config.blockConfirmations || 0,
+        waitConfirmations: network.config.blockConfirmations || 1,
     })
     log(`MingCoin deployed at ${ming.address}`)
 }

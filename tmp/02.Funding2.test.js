@@ -1,6 +1,6 @@
 const { assert, expect } = require("chai");
 const { network, deployments, ethers } = require("hardhat");
-const { developmentChains } = require("../../helper-hardhat-config");
+const { developmentChains } = require("../helper-hardhat-config");
 const contractValidator = require("@sigridjin/contract-validator");
 
 // !developmentChains.includes(network.name)

@@ -20,7 +20,7 @@ module.exports = {
   networks: {
     hardhat: {
       forking: {
-        url: process.env.NODIES_MAINNET_URL,
+        url: process.env.ALCHEMY_MAINNET_URL,
       }
     },
     localhost: {
