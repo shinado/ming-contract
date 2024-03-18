@@ -33,12 +33,16 @@ describe("Ming", function () {
       // const user1 = accounts[1];
       // const user2 = accounts[2];
 
-      const sendValue = ethers.utils.parseEther("1");
+      const sendValue = ethers.utils.parseEther("1.263");
       await ming.batchMint({ value: sendValue });
       const balance1 = await ming.balanceOf(deployer);
 
-      expect(balance1).to.be.equal((106666666n + 444444n) * decimals);
+      expect(balance1).to.be.equal((135164443158) * decimals);
     });
+
+    it("onFundingOver", async () => {
+      await ming.onFundingOver();
+    })
   });
 
   describe("burning", function () {

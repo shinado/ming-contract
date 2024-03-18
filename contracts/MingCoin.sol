@@ -2,15 +2,28 @@
 pragma solidity ^0.7.6;
 pragma abicoder v2;
 
+import "./Constants.sol";
+import "./SqrtMath.sol";
+import "./Address.sol";
+import "hardhat/console.sol";
+
 import "./Address.sol";
 import "hardhat/console.sol";
 import "./ERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
+import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import '@uniswap/v3-core/contracts/libraries/TickMath.sol';
+import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
+import '@uniswap/v3-periphery/contracts/base/PoolInitializer.sol';
+import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
+import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IWETH is IERC20 {
     function deposit() external payable;
-
     function withdraw(uint) external;
 }
 
@@ -59,6 +72,17 @@ contract MingCoin is ERC20 {
 
     uint256 private total = 0;
     IWETH weth;
+    address public /* immutable */ i_owner;
+    uint24 public constant poolFee = 3000;
+
+    INonfungiblePositionManager private nonfungiblePositionManager = INonfungiblePositionManager(Address.UNIV3_POS_MANAGER);
+
+    IUniswapV3Factory private v3Factory = IUniswapV3Factory(Address.UNIV3_FACTORY);
+    IUniswapV3Pool private pool;
+
+    uint24 constant fee = 3000;
+    int24 tickSpacing;
+
 
     //version 0.1.0 changed to free mint
     //version 0.1.2 added batch mint
@@ -67,6 +91,7 @@ contract MingCoin is ERC20 {
         // addressOfSBT = _addressOfSBT;
         // _mint(msg.sender, 444_444_444_444_444 * 10 ** 18);
         weth = IWETH(Address.WETH);
+        i_owner = msg.sender;
     }
 
     function maxSupply() public pure returns (uint256) {
@@ -82,7 +107,7 @@ contract MingCoin is ERC20 {
     }
 
     //free mint
-    //est. 10 million mints
+    //should we keep it?
     function mint() public returns (uint256) {
         require(total < MAX, "Mint finished");
 
@@ -105,10 +130,13 @@ contract MingCoin is ERC20 {
 
     function batchMint() public payable {
         uint256 ETHAmount = msg.value;
+        console.log("ETHAmount: ");
+        console.log(ETHAmount);
+
         require(ETHAmount > 0, "fund must > zero");
 
         uint256 amountOfMing = ETHAmount * EXCHANGE_RATE;
-        require(balanceToMint() >= amountOfMing * 2, "Not enough MING to mint");
+        require(balanceToMint() >= amountOfMing, "Not enough MING to mint");
 
         uint256 balanceBefore = weth.balanceOf(address(this));
 
@@ -124,12 +152,12 @@ contract MingCoin is ERC20 {
             "Ethereum not deposited"
         );
 
-        // IERC20 ming = IERC20(address(this));
-        // ming.transfer(msg.sender, amountOfMing);
+        //send amountOfMing to funder
         _mint(msg.sender, amountOfMing);
 
-        total += amountOfMing * 2;
+        total += amountOfMing;
     }
+
 
     //avoid calling this function as the array grows larger
     function getBurningList() public view returns (Burning[] memory) {
@@ -342,4 +370,37 @@ contract MingCoin is ERC20 {
         if (uint8(b) < 10) return bytes1(uint8(b) + 0x30);
         else return bytes1(uint8(b) + 0x57);
     }
+
+    modifier onlyOwner {
+        require(
+            msg.sender == i_owner,
+            "not owner"
+        );
+        _;
+    }
+
+    function onFundingOver() public onlyOwner{
+        // require(!isMintOver(), "Funding over has been called.");
+
+        uint256 fundRaised = weth.balanceOf(address(this));
+        console.log("------------ begin of contract method onFundingOver() ------------");
+        console.log("fundRaised: %s", fundRaised);
+
+        if (fundRaised == 0) {
+            //zero raised
+            //burn
+            console.log("zero raised");
+        }else{
+            sendToUniswapV3(fundRaised);
+        }
+
+        console.log("------------ end of contract method onFundingOver() ------------");
+    }
+
+    uint256 private constant DECIMALS = 18;
+
+    function sendToUniswapV3(uint256 amountOfETH) private{
+        //send all to uniswap
+    }
+
 }

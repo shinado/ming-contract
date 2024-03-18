@@ -396,8 +396,8 @@ contract Funding is IERC721Receiver{
         console.log("current tick: ");
         console.logInt(curTick);
         curTick = curTick - (curTick % tickSpacing);
-        int24 lowerTick = curTick - (tickSpacing * TICK_SPACING_MULTIPLIER); //we don't really care about slipage so set tick high
-        int24 upperTick = curTick + (tickSpacing * TICK_SPACING_MULTIPLIER);
+        int24 lowerTick = 887272;//curTick - (tickSpacing * TICK_SPACING_MULTIPLIER); //we don't really care about slipage so set tick high
+        int24 upperTick = -887272;//curTick + (tickSpacing * TICK_SPACING_MULTIPLIER);
         require(curTick % tickSpacing == 0, 'tick error');
 
         console.log("lower*upper tick ");
