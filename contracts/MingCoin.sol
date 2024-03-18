@@ -71,7 +71,6 @@ contract MingCoin is ERC20 {
     uint256 private constant EXCHANGE_RATE = 106_666_666; //41.66 ETH for whole supply
 
     uint256 private total = 0;
-    IWETH weth;
     address public /* immutable */ i_owner;
     uint24 public constant poolFee = 3000;
 
@@ -90,7 +89,6 @@ contract MingCoin is ERC20 {
     constructor() ERC20("Ming Coin v0.1.3", "MING") {
         // addressOfSBT = _addressOfSBT;
         // _mint(msg.sender, 444_444_444_444_444 * 10 ** 18);
-        weth = IWETH(Address.WETH);
         i_owner = msg.sender;
     }
 
@@ -104,6 +102,14 @@ contract MingCoin is ERC20 {
 
     function isMintOver() public view returns (bool) {
         return total >= MAX;
+    }
+
+    function withdraw() public onlyOwner {
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No ether left to withdraw");
+
+        (bool success, ) = payable(i_owner).call{value: balance}("");
+        require(success, "Transfer failed.");
     }
 
     //free mint
@@ -138,23 +144,8 @@ contract MingCoin is ERC20 {
         uint256 amountOfMing = ETHAmount * EXCHANGE_RATE;
         require(balanceToMint() >= amountOfMing, "Not enough MING to mint");
 
-        uint256 balanceBefore = weth.balanceOf(address(this));
-
-        if (ETHAmount != 0) {
-            //balanceOf[msg.sender] = msg.value
-            weth.deposit{value: ETHAmount}();
-            weth.transfer(address(this), ETHAmount);
-        }
-        uint256 balanceNow = weth.balanceOf(address(this));
-
-        require(
-            balanceNow - balanceBefore == ETHAmount,
-            "Ethereum not deposited"
-        );
-
         //send amountOfMing to funder
         _mint(msg.sender, amountOfMing);
-
         total += amountOfMing;
     }
 
@@ -377,30 +368,6 @@ contract MingCoin is ERC20 {
             "not owner"
         );
         _;
-    }
-
-    function onFundingOver() public onlyOwner{
-        // require(!isMintOver(), "Funding over has been called.");
-
-        uint256 fundRaised = weth.balanceOf(address(this));
-        console.log("------------ begin of contract method onFundingOver() ------------");
-        console.log("fundRaised: %s", fundRaised);
-
-        if (fundRaised == 0) {
-            //zero raised
-            //burn
-            console.log("zero raised");
-        }else{
-            sendToUniswapV3(fundRaised);
-        }
-
-        console.log("------------ end of contract method onFundingOver() ------------");
-    }
-
-    uint256 private constant DECIMALS = 18;
-
-    function sendToUniswapV3(uint256 amountOfETH) private{
-        //send all to uniswap
     }
 
 }

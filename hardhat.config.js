@@ -20,7 +20,8 @@ module.exports = {
   networks: {
     hardhat: {
       forking: {
-        url: process.env.ALCHEMY_MAINNET_URL,
+        // url: process.env.ALCHEMY_MAINNET_URL,
+        url: process.env.ALCHEMY_OP_MAINNET_URL,
       }
     },
     localhost: {
@@ -43,10 +44,26 @@ module.exports = {
       chainId: 5,
       gas: 2100000, //
       gasPrice: 12000000000, // 12 wei
-      // gasPrice: "auto",
-      // gas: "auto",
       blockConfirmations: 3
-    }
+    },
+    optism: {
+      url: `https://opt-mainnet.g.alchemy.com/v2/8LQ6F_CKZvP5LrBgdTNySjZ_YaDh162T`,
+      accounts: [process.env.OP_WALLET_PRIVATE_KEY],
+      chainId: 10,
+      gas: 2100000, //
+      gasPrice: 12000000000, // 12 wei
+      blockConfirmations: 3
+    },
+    op_sepolia: {
+      url: `https://opt-sepolia.g.alchemy.com/v2/HwtsQCroXMrbyMh1aQSU9TzoKaVludrW`,
+      accounts: [process.env.OP_WALLET_PRIVATE_KEY],
+      chainId: 11155420,
+      gasPrice: "auto",
+      gas: "auto",
+      // gas: 2100000, //
+      // gasPrice: 12000000000, // 12 wei
+      blockConfirmations: 3
+    },
   },
   etherscan: {
     apiKey: ETHERSCAN_API_KEY,
