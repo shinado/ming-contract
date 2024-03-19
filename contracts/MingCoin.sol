@@ -2,30 +2,10 @@
 pragma solidity ^0.7.6;
 pragma abicoder v2;
 
-import "./Constants.sol";
-import "./SqrtMath.sol";
-import "./Address.sol";
-import "hardhat/console.sol";
-
-import "./Address.sol";
-import "hardhat/console.sol";
-import "./ERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-
-import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import '@uniswap/v3-core/contracts/libraries/TickMath.sol';
-import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
-import '@uniswap/v3-periphery/contracts/base/PoolInitializer.sol';
-import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
-import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-interface IWETH is IERC20 {
-    function deposit() external payable;
-    function withdraw(uint) external;
-}
+import "hardhat/console.sol";
 
 contract MingCoin is ERC20 {
     struct KV {
@@ -41,13 +21,8 @@ contract MingCoin is ERC20 {
     struct Profile {
         mapping(string => KeyValue) valueMap;
         string[] keys;
+        uint256 _type;
         bool exists;
-    }
-
-    struct BurningInfo {
-        address from;
-        uint256 amount;
-        string message;
     }
 
     struct Burning {
@@ -57,84 +32,44 @@ contract MingCoin is ERC20 {
         bool exists;
     }
 
-    mapping(address => Profile) private bannerMap;
-    mapping(address => Profile) private portraitMap;
-    mapping(address => Profile) private bioMap;
-    mapping(address => Burning) private addressMap;
-    mapping(address => BurningInfo[]) private burningMap;
-    mapping(string => address) private name2Address;
+    mapping(address => Profile) public bannerMap;
+    mapping(address => Profile) public portraitMap;
+    mapping(address => Profile) public bioMap;
+    mapping(address => Burning) public addressMap;
+    mapping(string => address) public name2Address;
     // Array to store the keys of the mapping
-    address[] private addresses;
+    address[] public addresses;
 
-    uint256 private constant MAX = 444_444_444_444 * 10 ** 18;
-    uint256 private constant MINT_AMOUNT = 444_444_000_000 * 10 ** 12; //444_444.444_444
-    uint256 private constant EXCHANGE_RATE = 106_666_666; //41.66 ETH for whole supply
+    string constant VERSION = "v0.1.4";
+    uint256 constant MAX_SUPPLY = 444_444_444_444 * 10 ** 18;
+    uint256 constant MINT_AMOUNT = 444_444_000_000 * 10 ** 12; //444_444.444_444
+    uint256 constant EXCHANGE_RATE = 106_666_666; // 41.66 ETH for whole supply
 
-    uint256 private total = 0;
     address public /* immutable */ i_owner;
-    uint24 public constant poolFee = 3000;
 
-    INonfungiblePositionManager private nonfungiblePositionManager = INonfungiblePositionManager(Address.UNIV3_POS_MANAGER);
+    event updateProfileEvent(address from, uint256 _type, string value, uint256 amount);
+    event burnMing(address from, uint256 value, string message);
 
-    IUniswapV3Factory private v3Factory = IUniswapV3Factory(Address.UNIV3_FACTORY);
-    IUniswapV3Pool private pool;
+    modifier onlyOwner {
+        require(
+            msg.sender == i_owner,
+            "not owner"
+        );
+        _;
+    }
 
-    uint24 constant fee = 3000;
-    int24 tickSpacing;
-
-
-    //version 0.1.0 changed to free mint
-    //version 0.1.2 added batch mint
-    //version 0.1.3 added burning message
-    constructor() ERC20("Ming Coin v0.1.3", "MING") {
+    constructor() ERC20("Ming Coin", "MING") {
         // addressOfSBT = _addressOfSBT;
         // _mint(msg.sender, 444_444_444_444_444 * 10 ** 18);
         i_owner = msg.sender;
     }
 
-    function maxSupply() public pure returns (uint256) {
-        return MAX;
-    }
-
-    function totalMinted() public view returns (uint256) {
-        return total;
-    }
-
-    function isMintOver() public view returns (bool) {
-        return total >= MAX;
-    }
-
-    function withdraw() public onlyOwner {
-        uint256 balance = address(this).balance;
-        require(balance > 0, "No ether left to withdraw");
-
-        (bool success, ) = payable(i_owner).call{value: balance}("");
+    function withdraw() external onlyOwner {
+        (bool success, ) = payable(i_owner).call{value: address(this).balance}("");
         require(success, "Transfer failed.");
     }
 
-    //free mint
-    //should we keep it?
-    function mint() public returns (uint256) {
-        require(total < MAX, "Mint finished");
-
-        if (total + MINT_AMOUNT > MAX) {
-            uint256 actualAmount = MAX - total;
-            _mint(msg.sender, actualAmount);
-            total += actualAmount;
-
-            return actualAmount;
-        } else {
-            _mint(msg.sender, MINT_AMOUNT);
-            total += MINT_AMOUNT;
-            return MINT_AMOUNT;
-        }
-    }
-
-    function balanceToMint() public view returns (uint256) {
-        return MAX - total;
-    }
-
-    function batchMint() public payable {
+    function mint() external payable {
         uint256 ETHAmount = msg.value;
         console.log("ETHAmount: ");
         console.log(ETHAmount);
@@ -142,33 +77,16 @@ contract MingCoin is ERC20 {
         require(ETHAmount > 0, "fund must > zero");
 
         uint256 amountOfMing = ETHAmount * EXCHANGE_RATE;
-        require(balanceToMint() >= amountOfMing, "Not enough MING to mint");
+        require(MAX_SUPPLY - totalSupply() >= amountOfMing, "Not enough MING to mint");
 
-        //send amountOfMing to funder
+        // send amountOfMing to funder
         _mint(msg.sender, amountOfMing);
-        total += amountOfMing;
-    }
-
-
-    //avoid calling this function as the array grows larger
-    function getBurningList() public view returns (Burning[] memory) {
-        if (addresses.length > 10000) {
-            revert(
-                "Avoid calling this function as the addresses grow too large"
-            );
-        }
-
-        Burning[] memory burnings = new Burning[](addresses.length);
-        for (uint i = 0; i < addresses.length; i++) {
-            burnings[i] = addressMap[addresses[i]];
-        }
-        return burnings;
     }
 
     function getProfileList(
         uint _type,
         address addr
-    ) public view returns (KV[] memory) {
+    ) external view returns (KV[] memory) {
         Profile storage selectedProfile;
 
         if (_type == 1) {
@@ -191,12 +109,12 @@ contract MingCoin is ERC20 {
     }
 
     function updateProfile(
-        uint _type,
+        uint256 _type,
         address addr,
-        string memory url,
-        uint amount
-    ) public {
-        require(addressMap[addr].exists == true, "Address not exists");
+        string calldata url,
+        uint256 amount
+    ) external {
+        require(addressMap[addr].exists, "Address not exists");
         require(_type >= 1 && _type <= 3, "Invalid type");
 
         Profile storage profile;
@@ -210,53 +128,44 @@ contract MingCoin is ERC20 {
 
         if (amount > 0) {
             transfer(addr, amount);
-            // do not add this amount to it
-            // addressMap[addr].amount += amount;
         }
 
-        KeyValue storage keyValue = profile.valueMap[url];
-        if (!keyValue.exists) {
-            keyValue.exists = true;
+        if (!profile.valueMap[url].exists) {
+            profile.valueMap[url].exists = true;
             profile.keys.push(url);
         }
 
-        keyValue.value += amount;
+        profile.valueMap[url].value += amount;
+
+        emit updateProfileEvent(addr, _type, url, amount);
     }
 
     function _burnToAddress(
         address addr,
         uint256 amount,
-        string memory message
-    ) private{
+        string calldata message
+    ) private {
         transfer(addr, amount);
         addressMap[addr].amount += amount;
 
-        burningMap[addr].push(
-            BurningInfo({from: msg.sender, amount: amount, message: message})
-        );
+        emit burnMing(addr, amount, message);
     }
 
     function burnToAddress(
         address addr,
         uint256 amount,
-        string memory message
-    ) public {
-        require(addressMap[addr].exists == true, "Address not exists");
+        string calldata message
+    ) external {
+        require(addressMap[addr].exists, "Address not exists");
 
         _burnToAddress(addr, amount, message);
     }
 
-    function getBurningHistory(
-        address addr
-    ) public view returns (BurningInfo[] memory) {
-        return burningMap[addr];
-    }
-
-    function burn(
-        string memory recipient,
+    function burn (
+        string calldata recipient,
         uint256 amount,
-        string memory message
-    ) public returns (address) {
+        string calldata message
+    ) external {
         address addr = stringToAddress(recipient);
 
         if (addressMap[addr].exists == false) {
@@ -266,13 +175,11 @@ contract MingCoin is ERC20 {
             addresses.push(addr);
         }
         _burnToAddress(addr, amount, message);
-
-        return addr;
     }
 
     function getAddressByName(
         string calldata recipient
-    ) public view returns (address) {
+    ) external view returns (address) {
         address addr = name2Address[recipient];
         if (addr == address(0)) {
             return stringToAddress(recipient);
@@ -283,13 +190,8 @@ contract MingCoin is ERC20 {
 
     function getNameByAddress(
         address addr
-    ) public view returns (string memory) {
+    ) external view returns (string memory) {
         return addressMap[addr].name;
-    }
-
-    // A method to return a Burning struct
-    function getBaseProfile(address addr) public view returns (Burning memory) {
-        return addressMap[addr];
     }
 
     function stringToAddress(
@@ -361,13 +263,4 @@ contract MingCoin is ERC20 {
         if (uint8(b) < 10) return bytes1(uint8(b) + 0x30);
         else return bytes1(uint8(b) + 0x57);
     }
-
-    modifier onlyOwner {
-        require(
-            msg.sender == i_owner,
-            "not owner"
-        );
-        _;
-    }
-
 }

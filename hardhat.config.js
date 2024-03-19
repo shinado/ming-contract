@@ -22,11 +22,11 @@ module.exports = {
       forking: {
         // url: process.env.ALCHEMY_MAINNET_URL,
         url: process.env.ALCHEMY_OP_MAINNET_URL,
-      }
+      },
     },
     localhost: {
       url: "http://localhost:8545",
-      chainId: 31337
+      chainId: 31337,
     },
     sepolia: {
       url: process.env.SEPOLIA_RPC_URL,
@@ -36,7 +36,7 @@ module.exports = {
       gasPrice: 200000000000,
       // gasPrice: "auto",
       // gas: "auto",
-      blockConfirmations: 3
+      blockConfirmations: 3,
     },
     goerli: {
       url: process.env.GOERLI_RPC_URL,
@@ -44,7 +44,7 @@ module.exports = {
       chainId: 5,
       gas: 2100000, //
       gasPrice: 12000000000, // 12 wei
-      blockConfirmations: 3
+      blockConfirmations: 3,
     },
     optism: {
       url: `https://opt-mainnet.g.alchemy.com/v2/8LQ6F_CKZvP5LrBgdTNySjZ_YaDh162T`,
@@ -52,7 +52,7 @@ module.exports = {
       chainId: 10,
       gas: 2100000, //
       gasPrice: 12000000000, // 12 wei
-      blockConfirmations: 3
+      blockConfirmations: 3,
     },
     op_sepolia: {
       url: `https://opt-sepolia.g.alchemy.com/v2/HwtsQCroXMrbyMh1aQSU9TzoKaVludrW`,
@@ -62,16 +62,26 @@ module.exports = {
       gas: "auto",
       // gas: 2100000, //
       // gasPrice: 12000000000, // 12 wei
-      blockConfirmations: 3
+      blockConfirmations: 3,
     },
   },
   etherscan: {
     apiKey: ETHERSCAN_API_KEY,
+    customChains: [
+      {
+        network: "op_sepolia",
+        chainId: 11155420,
+        urls: {
+          apiURL: "https://sepolia-optimism.etherscan.io/api",
+          browserURL: "https://sepolia-optimism.etherscan.io",
+        },
+      },
+    ],
   },
   sourcify: {
     // Disabled by default
     // Doesn't need an API key
-    enabled: true
+    enabled: true,
   },
   gasReporter: {
     enabled: false,
